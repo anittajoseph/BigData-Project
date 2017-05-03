@@ -1,0 +1,1220 @@
+27042017
+***********
+
+6.Find the percentage and the count of each case status on total applications for each year. Create a graph depicting the pattern of All the cases over the period of time.
+
+--grunt> h1b = LOAD '/home/cloudera/H1B/h1b.csv' using PigStorage (',') as (sno:int, case_status:chararray, employer_name:chararray, job_title:chararray, full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int );
+
+h1b = load '/user/hive/warehouse/h1b_final' using PigStorage() as
+(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+
+grunt> describe h1b;
+h1b: {sno: int,case_status: chararray,employer_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: int,latitude: int}
+grunt> 
+
+groupbyyear = group h1b by year;
+
+countbyyear = foreach groupbyyear generate group as year, COUNT(h1b) as no_of_petitions;
+grunt> describe countbyyear;
+countbyyear: {year: chararray,no_of_app: long}
+grunt> 
+
+certified = filter h1b by  case_status MATCHES 'CERTIFIED';
+certified_with = filter h1b by  case_status MATCHES 'CERTIFIED-WITHDROWN';
+withdrown = filter h1b by  case_status MATCHES 'WITHDROWN';
+--denied = filter h1b by  case_status!='CERTIFIED' and case_status!='CERTIFIED-WITHDROWN' and  case_status!='WITHDROWN' ;
+
+denied = filter h1b by  case_status MATCHES 'DENIED';
+
+
+
+
+--grunt> describe filtercase;
+filtercase: {sno: int,case_status: chararray,employer_name: chararray,soc_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: double,latitude: double}
+grunt> 
+
+
+--grunt> yearwisecase_status = group filtercase by year;
+
+--grunt> describe yearwisecase_status;
+yearwisecase_status: {group: chararray,filtercase: {(sno: int,case_status: chararray,employer_name: chararray,soc_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: double,latitude: double)}}
+grunt> 
+
+grunt> yearwise_certified = group certified by year;
+grunt> describe;
+yearwise_certified: {group: chararray,certified: {(sno: int,case_status: chararray,employer_name: chararray,soc_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: int,latitude: int)}}
+grunt> 
+
+yearwise_certified_with = group certified_with  by year;
+yearwise_withdrown = group withdrown by year;
+yearwise_denied = group denied by year;
+
+
+
+
+--grunt> totalcase_status = foreach yearwise_certified generate group as year, COUNT(certified) as petition;
+--grunt> describe totalcase_status;
+totalcase_status: {year: chararray,petition: long}
+grunt> 
+
+totalcase_certified = foreach yearwise_certified generate group as year, COUNT(certified) as petition;
+
+totalcase_certified_with = foreach yearwise_certified_with  generate group as year, COUNT(certified_with ) as petition;
+
+totalcase_withdrown = foreach yearwise_withdrown generate group as year, COUNT(withdrown) as petition;
+
+totalcase_denied = foreach yearwise_denied generate group as year, COUNT(denied) as petition;
+
+
+""
+
+
+- -totalcase_status = foreach yearwisecase_status generate group as year, COUNT(filtercase) as petition;
+
+
+
+joindata = join totalcase_certified by $0, totalcase_certified_with by $0, totalcase_withdrown by $0 , totalcase_denied by $0;
+
+--grunt> joindata1 = join totalcase_certified by $0 FULL, totalcase_certified_with by $0;
+
+--joindata2= join joindata1 by $0 FULL,totalcase_withdrown by $0;
+
+--joindata= join joindata2 by $0 FULL,totalcase_denied by $0;
+
+--joindata = join totalcase_certified by $0 FULL, totalcase_certified_with by $0 FULL, totalcase_withdrown by $0 FULL, totalcase_denied by $0;
+
+grunt> describe joindata;
+joindata: {totalcase_certified::year: chararray,totalcase_certified::petition: long,totalcase_certified_with::year: chararray,totalcase_certified_with::petition: long,totalcase_withdrown::year: chararray,totalcase_withdrown::petition: long,totalcase_denied::year: chararray,totalcase_denied::petition: long}
+grunt> 
+
+--grunt> joindata = join countbyyear by $0 FULL, totalcase_status by $0;
+
+--grunt> newdata = foreach joindata generate $0,$1,$3;
+--grunt> describe newdata;
+newdata: {countbyyear::year: chararray,countbyyear::no_of_petitions: long,yearwisecase_status::filtercase: {(sno: int,case_status: chararray,employer_name: chararray,soc_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: double,latitude: double)}}
+grunt> 
+
+ newdata = foreach joindata generate $0,$1,$3;
+grunt> describe newdata;
+newdata: {totalcase_certified::year: chararray,totalcase_certified::petition: long,totalcase_certified_with::petition: long}
+grunt> 
+
+
+percentage = foreach newdata generate $0,$2, ROUND_TO((($2*100)/$1),2) as percentage;
+describe percentage;
+percentage: {countbyyear::year: chararray,totalcase_status::petition: long,percentage: float}
+
+
+
+
+result = order percentage by $0 desc;
+describe result;
+result: {countbyyear::year: chararray,totalcase_status::petition: long,percentage: float}
+
+
+ dump result  ;
+
+*********************
+27042017
+********************
+
+h1b = LOAD '/user/hive/warehouse/niit.db/h1b_app2' using PigStorage () as (sno:int, case_status:chararray, employer_name:chararray,soc_name:chararray, job_title:chararray, full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+h1b2 = FOREACH h1b GENERATE STRSPLIT(case_status, 'CER');
+
+
+***
+
+
+
+--X = FILTER h1b BY (job_title matches ‘.*DATA SCIENTIST.*’);
+--X = FILTER h1b BY (job_title  == ‘DATA SCIENTIST’);
+
+3. x = filter h1b by  case_status MATCHES 'DATA SCIENTIST';
+
+6. pig
+
+
+
+pig load command
+
+app = load '/user/hive/warehouse/h1b_final' using PigStorage() as
+(sno:int, case_status:chararray, employer_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+********
+28042017
+********
+create database niit1;
+
+ CREATE TABLE h1b_applications(sno int,case_status string,
+ employer_name string, soc_name string, job_title string,
+ full_time_position string,prevailining_wage int,year string, worksite
+ string, longitude double, latitude double )
+ ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+ WITH SERDEPROPERTIES (
+ "separatorChar" = ",",
+ "quoteChar" = "\""
+ ) STORED AS TEXTFILE;
+
+ load data local inpath '/home/cloudera/H1B/h1b.csv' overwrite into table
+ h1b_applications;
+
+ CREATE TABLE h1b_app2(sno int,case_status string, employer_name
+ string, soc_name string, job_title string, full_time_position
+ string,prevailining_wage int,year string, worksite string, longitude
+ double, latitude double )
+ row format delimited
+fields terminated by '\t'
+ STORED AS TEXTFILE;
+
+
+ INSERT OVERWRITE TABLE h1b_app2 SELECT regexp_replace(sno, "\t", ""),
+ regexp_replace(case_status, "\t", ""), regexp_replace(employer_name,
+ "\t", ""), regexp_replace(soc_name, "\t", ""),
+ regexp_replace(job_title, "\t", ""),
+ regexp_replace(full_time_position, "\t", ""),
+ regexp_replace(prevailining_wage, "\t", ""), regexp_replace(year, "\t",
+ ""), regexp_replace(worksite, "\t", ""), regexp_replace(longitude,
+ "\t", ""), regexp_replace(latitude, "\t", "") FROM h1b_applications
+ where case_status != "NA";
+
+ CREATE TABLE h1b_final(sno int,case_status string, employer_name
+string, soc_name string, job_title string, full_time_position
+ string,prevailining_wage int,year string, worksite string, longitude
+ double, latitude double )
+ row format delimited
+ fields terminated by '\t'
+ STORED AS TEXTFILE;
+
+ INSERT OVERWRITE TABLE h1b_final SELECT sno, case when trim(case_status) = "PENDING QUALITY AND COMPLIANCE REVIEW - UNASSIGNED" then "DENIED" when trim(case_status) = "REJECTED" then "DENIED" when trim(case_status) = "INVALIDATED" then "DENIED"
+else case_status end,employer_name, soc_name, job_title,  full_time_position,prevailining_wage,year, worksite, longitude, latitude FROM h1b_app2;
+
+hive> select distinct case_status from h1b_final;
+CERTIFIED-WITHDRAWN
+WITHDRAWN
+CERTIFIED
+DENIED
+Time taken: 57.755 seconds, Fetched: 4 row(s)
+
+select COUNT(*) from h1b_final;
+3002445
+select * from h1b_final limit 5;
+OK
+1	CERTIFIED-WITHDRAWN	UNIVERSITY OF MICHIGAN	BIOCHEMISTS AND BIOPHYSICISTS	POSTDOCTORAL RESEARCH FELLOW	N	36067	2016	ANN ARBOR, MICHIGAN	-83.7430378	42.2808256
+2	CERTIFIED-WITHDRAWN	GOODMAN NETWORKS, INC.	CHIEF EXECUTIVES	CHIEF OPERATING OFFICER	Y	242674	2016	PLANO, TEXAS	-96.6988856	33.0198431
+3	CERTIFIED-WITHDRAWN	PORTS AMERICA GROUP, INC.	CHIEF EXECUTIVESCHIEF PROCESS OFFICER	Y	193066	2016	JERSEY CITY, NEW JERSEY	-74.0776417	40.7281575
+4	CERTIFIED-WITHDRAWN	GATES CORPORATION, A WHOLLY-OWNED SUBSIDIARY OF TOMKINS PLC	CHIEF EXECUTIVES	REGIONAL PRESIDEN, AMERICAS	Y	220314	2016	DENVER, COLORADO	-104.990251	39.7392358
+5	WITHDRAWN	PEABODY INVESTMENTS CORP.	CHIEF EXECUTIVES	PRESIDENT MONGOLIA AND INDIA	Y	157518	2016	ST. LOUIS, MISSOURI	-90.1994042	38.6270025
+Time taken: 0.126 seconds, Fetched: 5 row(s)
+hive> 
+
+select distinct year from h1b_final;
+2011
+2013
+2015
+2012
+2014
+2016
+***********************
+
+/user/hive/warehouse/niit1.db/h1b_final
+
+hadoop fs -cp -p /user/hive/warehouse/niit.db/h1b_final /
+hadoop fs -rmr -R  /h1bop1
+
+MR
+***
+1a) Is the number of petitions with Data Engineer job title increasing over time?
+Ans:
+17/04/30 04:37:58 INFO mapreduce.Job: Counters: 50
+	File System Counters
+		FILE: Number of bytes read=12053
+		FILE: Number of bytes written=630904
+		FILE: Number of read operations=0
+		FILE: Number of large read operations=0
+		FILE: Number of write operations=0
+		HDFS: Number of bytes read=449865655
+		HDFS: Number of bytes written=31
+		HDFS: Number of read operations=15
+		HDFS: Number of large read operations=0
+		HDFS: Number of write operations=2
+	Job Counters 
+		Killed map tasks=1
+		Launched map tasks=5
+		Launched reduce tasks=1
+		Data-local map tasks=5
+		Total time spent by all maps in occupied slots (ms)=204177
+		Total time spent by all reduces in occupied slots (ms)=12730
+		Total time spent by all map tasks (ms)=204177
+		Total time spent by all reduce tasks (ms)=12730
+		Total vcore-seconds taken by all map tasks=204177
+		Total vcore-seconds taken by all reduce tasks=12730
+		Total megabyte-seconds taken by all map tasks=209077248
+		Total megabyte-seconds taken by all reduce tasks=13035520
+	Map-Reduce Framework
+		Map input records=3002445
+		Map output records=1721
+		Map output bytes=8605
+		Map output materialized bytes=12071
+		Input split bytes=460
+		Combine input records=0
+		Combine output records=0
+		Reduce input groups=1
+		Reduce shuffle bytes=12071
+		Reduce input records=1721
+		Reduce output records=1
+		Spilled Records=3442
+		Shuffled Maps =4
+		Failed Shuffles=0
+		Merged Map outputs=4
+		GC time elapsed (ms)=2104
+		CPU time spent (ms)=13800
+		Physical memory (bytes) snapshot=1026654208
+		Virtual memory (bytes) snapshot=7510507520
+		Total committed heap usage (bytes)=771047424
+	Shuffle Errors
+		BAD_ID=0
+		CONNECTION=0
+		IO_ERROR=0
+		WRONG_LENGTH=0
+		WRONG_MAP=0
+		WRONG_REDUCE=0
+	File Input Format Counters 
+		Bytes Read=449865195
+	File Output Format Counters 
+		Bytes Written=31
+35.0,86.0,64.0,,58.0,99.0,68.40
+
+
+
+
+b) Find top 5 job titles who are having highest growth in applications.
+Ans:
+	File System Counters
+		FILE: Number of bytes read=89991890
+		FILE: Number of bytes written=180590493
+		FILE: Number of read operations=0
+		FILE: Number of large read operations=0
+		FILE: Number of write operations=0
+		HDFS: Number of bytes read=449865655
+		HDFS: Number of bytes written=157
+		HDFS: Number of read operations=15
+		HDFS: Number of large read operations=0
+		HDFS: Number of write operations=2
+	Job Counters 
+		Launched map tasks=4
+		Launched reduce tasks=1
+		Data-local map tasks=4
+		Total time spent by all maps in occupied slots (ms)=294764
+		Total time spent by all reduces in occupied slots (ms)=28318
+		Total time spent by all map tasks (ms)=294764
+		Total time spent by all reduce tasks (ms)=28318
+		Total vcore-seconds taken by all map tasks=294764
+		Total vcore-seconds taken by all reduce tasks=28318
+		Total megabyte-seconds taken by all map tasks=301838336
+		Total megabyte-seconds taken by all reduce tasks=28997632
+	Map-Reduce Framework
+		Map input records=3002445
+		Map output records=3002445
+		Map output bytes=83986994
+		Map output materialized bytes=89991908
+		Input split bytes=460
+		Combine input records=0
+		Combine output records=0
+		Reduce input groups=287542
+		Reduce shuffle bytes=89991908
+		Reduce input records=3002445
+		Reduce output records=5
+		Spilled Records=6004890
+		Shuffled Maps =4
+		Failed Shuffles=0
+		Merged Map outputs=4
+		GC time elapsed (ms)=2934
+		CPU time spent (ms)=31930
+		Physical memory (bytes) snapshot=1044996096
+		Virtual memory (bytes) snapshot=7508353024
+		Total committed heap usage (bytes)=777949184
+	Shuffle Errors
+		BAD_ID=0
+		CONNECTION=0
+		IO_ERROR=0
+		WRONG_LENGTH=0
+		WRONG_MAP=0
+		WRONG_REDUCE=0
+	File Input Format Counters 
+		Bytes Read=449865195
+	File Output Format Counters 
+		Bytes Written=157
+[cloudera@quickstart ~]$ 
+
+BUSINESS ANALYST 2,4930.00
+SENIOR SYSTEMS ANALYST JC60,4255.40
+PROGRAMMER/ DEVELOPER,4160.00
+BUSINESS SYSTEMS ANALYST 2,3966.80
+SOFTWARE DEVELOPER 2,3480.80
+
+2 a) Which part of the US has the most Data Engineer jobs for each year?
+
+SEATTLE, WASHINGTON	2011	20
+SAN FRANCISCO, CALIFORNIA	2011	4
+SAN MATEO, CALIFORNIA	2011	3
+WALTHAM, MASSACHUSETTS	2011	2
+TALLAHASSEE, FLORIDA	2011	1
+
+SEATTLE, WASHINGTON	2012	30
+SAN FRANCISCO, CALIFORNIA	2012	10
+PONTIAC, MICHIGAN	2012	3
+SAN MATEO, CALIFORNIA	2012	2
+WOODLAND HILLS, CALIFORNIA	2012	1
+
+SEATTLE, WASHINGTON	2013	46
+SAN FRANCISCO, CALIFORNIA	2013	17
+MENLO PARK, CALIFORNIA	2013	12
+NEW YORK, NEW YORK	2013	6
+ATLANTA, GEORGIA	2013	5
+MOUNTAIN VIEW, CALIFORNIA	2013	3
+THOUSAND OAKS, CALIFORNIA	2013	2
+WOODLAND HILLS, CALIFORNIA	2013	1
+
+SEATTLE, WASHINGTON	2014	45
+SAN FRANCISCO, CALIFORNIA	2014	34
+MENLO PARK, CALIFORNIA	2014	21
+NEW YORK, NEW YORK	2014	18
+MOUNTAIN VIEW, CALIFORNIA	2014	13
+SAN MATEO, CALIFORNIA	2014	8
+IRVINE, CALIFORNIA	2014	7
+REDWOOD CITY, CALIFORNIA	2014	5
+SUNNYVALE, CALIFORNIA	2014	4
+ST. PETERSBURG, FLORIDA	2014	3
+WINSTON-SALEM, NORTH CAROLINA	2014	2
+YONKERS, NEW YORK	2014	1
+
+SEATTLE, WASHINGTON	2015	61
+NEW YORK, NEW YORK	2015	41
+MENLO PARK, CALIFORNIA	2015	23
+MOUNTAIN VIEW, CALIFORNIA	2015	18
+SAN MATEO, CALIFORNIA	2015	15
+SANTA MONICA, CALIFORNIA	2015	13
+SAN RAMON, CALIFORNIA	2015	8
+SUNNYVALE, CALIFORNIA	2015	7
+SAN JOSE, CALIFORNIA	2015	6
+REDWOOD CITY, CALIFORNIA	2015	5
+CHICAGO, ILLINOIS	2015	4
+TROY, MICHIGAN	2015	3
+WESTBOROUGH, MASSACHUSETTS	2015	2
+WOODLAND HILLS, CALIFORNIA	2015	1
+
+SEATTLE, WASHINGTON	2016	128
+SAN FRANCISCO, CALIFORNIA	2016	90
+NEW YORK, NEW YORK	2016	70
+MENLO PARK, CALIFORNIA	2016	39
+IRVINE, CALIFORNIA	2016	18
+SUNNYVALE, CALIFORNIA	2016	16
+SAN MATEO, CALIFORNIA	2016	14
+CHICAGO, ILLINOIS	2016	13
+SANTA CLARA, CALIFORNIA	2016	12
+MOUNTAIN VIEW, CALIFORNIA	2016	11
+SAN JOSE, CALIFORNIA	2016	10
+PLANO, TEXAS	2016	9
+SANTA MONICA, CALIFORNIA	2016	8
+WALTHAM, MASSACHUSETTS	2016	7
+BURLINGTON, MASSACHUSETTS	2016	6
+SAN BRUNO, CALIFORNIA	2016	5
+VIENNA, VIRGINIA	2016	4
+VENICE, CALIFORNIA	2016	3
+WILMINGTON, DELAWARE	2016	2
+YORKTOWN HEIGHTS, NEW YORK	2016	1
+
+
+b) find top 5 locations in the US who have got certified visa for each year.
+Ans:
+
+NEW YORK, NEW YORK	2011	23172
+HOUSTON, TEXAS	2011	8184
+CHICAGO, ILLINOIS	2011	5188
+SAN JOSE, CALIFORNIA	2011	4713
+SAN FRANCISCO, CALIFORNIA	2011	4711
+
+NEW YORK, NEW YORK	2012	23737
+HOUSTON, TEXAS	2012	9963
+SAN FRANCISCO, CALIFORNIA	2012	6116
+CHICAGO, ILLINOIS	2012	5671
+ATLANTA, GEORGIA	2012	5565
+
+NEW YORK, NEW YORK	2013	23537
+HOUSTON, TEXAS	2013	11136
+SAN FRANCISCO, CALIFORNIA	2013	7281
+SAN JOSE, CALIFORNIA	2013	6722
+ATLANTA, GEORGIA	2013	6377
+
+NEW YORK, NEW YORK	2014	27634
+HOUSTON, TEXAS	2014	13360
+SAN FRANCISCO, CALIFORNIA	2014	9798
+SAN JOSE, CALIFORNIA	2014	8223
+ATLANTA, GEORGIA	2014	8213
+
+NEW YORK, NEW YORK	2015	31266
+HOUSTON, TEXAS	2015	15242
+SAN FRANCISCO, CALIFORNIA	2015	12594
+ATLANTA, GEORGIA	2015	10500
+SAN JOSE, CALIFORNIA	2015	9589
+
+NEW YORK, NEW YORK	2016	34639
+SAN FRANCISCO, CALIFORNIA	2016	13836
+HOUSTON, TEXAS	2016	13655
+ATLANTA, GEORGIA	2016	11678
+CHICAGO, ILLINOIS	2016	11064
+
+
+
+hive
+****
+3.Which industry has the most number of Data Scientist positions?
+select soc_name, count(job_title) as count  from h1b_final where job_title like '%DATA SCIENTIST%' group by soc_name order by count desc limit 10;
+
+STATISTICIANS	649
+COMPUTER AND INFORMATION RESEARCH SCIENTISTS	500
+OPERATIONS RESEARCH ANALYSTS	426
+Computer and Information Research Scientists	208
+COMPUTER OCCUPATIONS, ALL OTHER	179
+Statisticians	152
+SOFTWARE DEVELOPERS, APPLICATIONS	148
+MATHEMATICIANS	147
+COMPUTER SYSTEMS ANALYSTS	135
+Operations Research Analysts	124
+
+
+
+4. Which top 5 employers file the most petitions each year?
+Ans:
+
+create view topemp as select employer_name,year, count(*) as cnt from h1b_final where year in ('2011','2012','2013','2014','2015','2016') group by year, employer_name sort by year, cnt desc;
+
+ select year, employer_name, cnt ,rank from(select year, employer_name, rank() over (partition by year order by cnt desc) as rank,cnt from topemp) ranked_table where ranked_table.rank <=5;
+
+2011	TATA CONSULTANCY SERVICES LIMITED	5416	1
+2011	MICROSOFT CORPORATION	4253	2
+2011	DELOITTE CONSULTING LLP	3621	3
+2011	WIPRO LIMITED	3028	4
+2011	COGNIZANT TECHNOLOGY SOLUTIONS U.S. CORPORATION	2721	5
+2012	INFOSYS LIMITED	15818	1
+2012	WIPRO LIMITED	7182	2
+2012	TATA CONSULTANCY SERVICES LIMITED	6735	3
+2012	DELOITTE CONSULTING LLP	4727	4
+2012	IBM INDIA PRIVATE LIMITED	4074	5
+2013	INFOSYS LIMITED	32223	1
+2013	TATA CONSULTANCY SERVICES LIMITED	8790	2
+2013	WIPRO LIMITED	6734	3
+2013	DELOITTE CONSULTING LLP	6124	4
+2013	ACCENTURE LLP	4994	5
+2014	INFOSYS LIMITED	23759	1
+2014	TATA CONSULTANCY SERVICES LIMITED	14098	2
+2014	WIPRO LIMITED	8365	3
+2014	DELOITTE CONSULTING LLP	7017	4
+2014	ACCENTURE LLP	5498	5
+2015	INFOSYS LIMITED	33245	1
+2015	TATA CONSULTANCY SERVICES LIMITED	16553	2
+2015	WIPRO LIMITED	12201	3
+2015	IBM INDIA PRIVATE LIMITED	10693	4
+2015	ACCENTURE LLP	9605	5
+2016	INFOSYS LIMITED	25352	1
+2016	CAPGEMINI AMERICA INC	16725	2
+2016	TATA CONSULTANCY SERVICES LIMITED	13134	3
+2016	WIPRO LIMITED	10607	4
+2016	IBM INDIA PRIVATE LIMITED	9787	5
+Time taken: 111.88 seconds, Fetched: 30 row(s)
+
+
+5.Find the most popular top 10 job positions for H1B visa applications for each
+year?
+Ans:
+create view topjob as select job_title,year, count(case_status) as cnt from h1b_final where year in ('2011','2012','2013','2014','2015','2016') group by year, job_title sort by year, cnt desc;
+
+ select year,  job_title, cnt ,rank from(select year, job_title, rank() over (partition by year order by cnt desc) as rank,cnt from topjob) ranked_table where ranked_table.rank <=10;
+
+2011	PROGRAMMER ANALYST	31799	1
+2011	SOFTWARE ENGINEER	12763	2
+2011	COMPUTER PROGRAMMER	8998	3
+2011	SYSTEMS ANALYST	8644	4
+2011	BUSINESS ANALYST	3891	5
+2011	COMPUTER SYSTEMS ANALYST	3698	6
+2011	ASSISTANT PROFESSOR	3467	7
+2011	PHYSICAL THERAPIST	3377	8
+2011	SENIOR SOFTWARE ENGINEER	2935	9
+2011	SENIOR CONSULTANT	2798	10
+2012	PROGRAMMER ANALYST	33066	1
+2012	SOFTWARE ENGINEER	14437	2
+2012	COMPUTER PROGRAMMER	9629	3
+2012	SYSTEMS ANALYST	9296	4
+2012	BUSINESS ANALYST	4752	5
+2012	COMPUTER SYSTEMS ANALYST	4706	6
+2012	SOFTWARE DEVELOPER	3895	7
+2012	PHYSICAL THERAPIST	3871	8
+2012	ASSISTANT PROFESSOR	3801	9
+2012	SENIOR CONSULTANT	3737	10
+2013	PROGRAMMER ANALYST	33880	1
+2013	SOFTWARE ENGINEER	15680	2
+2013	COMPUTER PROGRAMMER	11271	3
+2013	SYSTEMS ANALYST	8714	4
+2013	TECHNOLOGY LEAD - US	7853	5
+2013	TECHNOLOGY ANALYST - US	7683	6
+2013	BUSINESS ANALYST	5716	7
+2013	COMPUTER SYSTEMS ANALYST	5043	8
+2013	SOFTWARE DEVELOPER	5026	9
+2013	SENIOR CONSULTANT	4326	10
+2014	PROGRAMMER ANALYST	43114	1
+2014	SOFTWARE ENGINEER	20500	2
+2014	COMPUTER PROGRAMMER	14950	3
+2014	SYSTEMS ANALYST	10194	4
+2014	SOFTWARE DEVELOPER	7337	5
+2014	BUSINESS ANALYST	7302	6
+2014	COMPUTER SYSTEMS ANALYST	6821	7
+2014	TECHNOLOGY LEAD - US	5057	8
+2014	TECHNOLOGY ANALYST - US	4913	9
+2014	SENIOR CONSULTANT	4898	10
+2015	PROGRAMMER ANALYST	53436	1
+2015	SOFTWARE ENGINEER	27259	2
+2015	COMPUTER PROGRAMMER	14054	3
+2015	SYSTEMS ANALYST	12803	4
+2015	SOFTWARE DEVELOPER	10441	5
+2015	BUSINESS ANALYST	8853	6
+2015	TECHNOLOGY LEAD - US	8242	7
+2015	COMPUTER SYSTEMS ANALYST	7918	8
+2015	TECHNOLOGY ANALYST - US	7014	9
+2015	SENIOR SOFTWARE ENGINEER	6013	10
+2016	PROGRAMMER ANALYST	53743	1
+2016	SOFTWARE ENGINEER	30668	2
+2016	SOFTWARE DEVELOPER	14041	3
+2016	SYSTEMS ANALYST	12314	4
+2016	COMPUTER PROGRAMMER	11668	5
+2016	BUSINESS ANALYST	9167	6
+2016	COMPUTER SYSTEMS ANALYST	6900	7
+2016	SENIOR SOFTWARE ENGINEER	6439	8
+2016	DEVELOPER	6084	9
+2016	TECHNOLOGY LEAD - US	5410	10
+Time taken: 150.405 seconds, Fetched: 60 row(s)
+hive> 
+
+
+7. Create a bar graph to depict the number of applications for each year
+ANS;
+select  year, COUNT(case_status) from h1b_final  group by year;
+
+2011	358767
+2013	442114
+2015	618727
+2012	415607
+2014	519427
+2016	647803
+
+**********
+pig
+***
+6.
+
+ h1b = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+
+b = foreach h1b generate $7, $1;
+
+c = group b by year;
+
+d = foreach c generate group as year,COUNT(b)as total;
+
+x = filter b by case_status=='CERTIFIED';
+
+y = group x by year;
+
+z = foreach y generate group as year, COUNT(x) as cert;
+
+joindata = join d by $0,z by $0;
+
+--grunt> data = foreach joindata generate $0,$1,$3,($3*100/$1) as perct;
+
+ data = foreach joindata generate $0,$1,$3,((double)$3*100/(double)$1) as perct;
+
+dump data;
+grunt> describe data;
+data: {d::year: chararray,d::total: long,z::cert: long,perct: long}
+
+(2011,358767,307936,85.83175152675692)
+(2012,415607,352668,84.85612609989725)
+(2013,442114,382951,86.61815730784367)
+(2014,519427,455144,87.62424748809747)
+(2015,618727,547278,88.45225761927313)
+(2016,647803,569646,87.93506667922192)
+
+ h1b = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+b = foreach h1b generate $7, $1;
+
+c = group b by year;
+
+d = foreach c generate group as year,COUNT(b)as total;
+
+x = filter b by case_status=='CERTIFIED-WITHDRAWN';
+
+y = group x by year;
+
+z = foreach y generate group as year, COUNT(x) as cert;
+
+joindata = join d by $0,z by $0;
+
+data = foreach joindata generate $0,$1,$3,((double)$3*100/(double)$1) as perct;
+
+dump data;
+
+(2011,358767,11596,3.2321813321738064)
+(2012,415607,31118,7.487361858678993)
+(2013,442114,35432,8.014222576077664)
+(2014,519427,36350,6.9980959788382195)
+(2015,618727,41071,6.637984119005636)
+(2016,647803,47092,7.269493966529948)
+
+ h1b = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+
+b = foreach h1b generate $7, $1;
+
+c = group b by year;
+
+d = foreach c generate group as year,COUNT(b)as total;
+
+x = filter b by case_status=='WITHDRAWN';
+
+y = group x by year;
+
+z = foreach y generate group as year, COUNT(x) as cert;
+
+joindata = join d by $0,z by $0;
+
+data = foreach joindata generate $0,$1,$3,((double)$3*100/(double)$1) as perct;
+
+dump data;
+
+(2011,358767,10105,2.816591269542628)
+(2012,415607,10725,2.5805628875355806)
+(2013,442114,11590,2.621495813297023)
+(2014,519427,16034,3.086863024063054)
+(2015,618727,19455,3.144359305477214)
+(2016,647803,21890,3.3791137120389996)
+
+ h1b = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+
+b = foreach h1b generate $7, $1;
+
+c = group b by year;
+
+d = foreach c generate group as year,COUNT(b)as total;
+
+x = filter b by case_status=='DENIED';
+
+y = group x by year;
+
+z = foreach y generate group as year, COUNT(x) as cert;
+
+joindata = join d by $0,z by $0;
+
+data = foreach joindata generate $0,$1,$3,((double)$3*100/(double)$1) as perct;
+
+dump data;
+
+(2011,358767,29130,8.119475871526646)
+(2012,415607,21096,5.0759491538881685)
+(2013,442114,12141,2.7461243027816353)
+(2014,519427,11899,2.290793509001265)
+(2015,618727,10923,1.76539895624403)
+(2016,647803,9175,1.4163256422091284)
+
+
+
+
+8. Find the average Prevailing Wage for each Job for each Year (take part time and
+full time separate)
+Ans:
+h1b = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+-- SPLIT h1b into year11 if year=='2011', year12 if year=='2012', year13 if year=='2013', year14 if year=='2014', year15 if year=='2015', year16 if year=='2016';
+
+grunt> h1bgroup = foreach h1b generate $4,$5,$6,$7;
+grunt> describe h1bgroup;
+h1bgroup: {job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray}
+
+h1bfilter = filter h1bgroup by year=='2011' and year=='2012' and year=='2013' and year=='2014' and year=='2015' and year=='2016';
+
+runt> newgroup = group h1bfilter by ($0,$1);
+grunt> describe newgroup;
+newgroup: {group: (job_title: chararray,full_time_position: chararray),h1bfilter: {(job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray)}}
+grunt> 
+
+h1bcount = foreach newgroup generate group as job_title,COUNT(h1bfilter),SUM(h1bfilter.prevailining_wage);
+
+final = foreach h1bcount generate $1, ($2/$1) as average;
+
+ result = order final by $0 desc;
+dump result;
+(2011,358767,29130,8.119475871526646)
+(2012,415607,21096,5.0759491538881685)
+(2013,442114,12141,2.7461243027816353)
+(2014,519427,11899,2.290793509001265)
+(2015,618727,10923,1.76539895624403)
+(2016,647803,9175,1.4163256422091284)
+
+or 
+
+
+h1b Pig
+
+8. 
+a = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+
+grunt> describe a;
+a: {sno: int,case_status: chararray,employer_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: int,latitude: int}
+grunt> 
+ 
+
+grunt> agroup = group a by year;
+
+grunt> describe agroup;
+agroup: {group: chararray,a: {(sno: int,case_status: chararray,employer_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: chararray,year: chararray,worksite: chararray,longitude: int,latitude: int)}}
+grunt> 
+
+grunt> b = filter a by year=='2011';
+b = filter a by year=='2012';
+b = filter a by year=='2013';
+b = filter a by year=='2014';
+b = filter a by year=='2015';
+b = filter a by year=='2016';
+
+--b = filter agroup by a.year=='2011' and a.year=='2012' and a.year=='2013' and a.year=='2014' and a.year=='2015' and a.year=='2016';
+
+grunt> describe b;
+b: {sno: int,case_status: chararray,employer_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: int,latitude: int}
+grunt> 
+
+--b = filter a by year=='2011' and year=='2012' and year=='2013' and year=='2014' and year=='2015' and year=='2016';
+
+
+grunt> c = foreach b generate $4, $5, $6, $7;
+grunt> describe c;
+c: {job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray}
+grunt> 
+
+
+grunt> d = group c by ($0, $1);
+grunt> describe d;
+d: {group: (job_title: chararray,full_time_position: chararray),c: {(job_title: chararray,full_time_position: chararray,prevailining_wage: chararray,year: chararray)}}
+grunt> 
+
+grunt> d = group c by ($0, $1);
+grunt> describe d;
+d: {group: (job_title: chararray,full_time_position: chararray),c: {(job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray)}}
+grunt> 
+
+grunt> e = foreach d generate group as job_title, COUNT(c),SUM(c.prevailining_wage);
+grunt> describe c;
+grunt> describe d;
+d: {group: (job_title: chararray,full_time_position: chararray),c: {(job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray)}}
+grunt> 
+
+grunt> f = foreach e generate $0, ($2/$1)as avg;
+2017-04-21 00:02:16,839 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 1 time(s).
+grunt> 
+grunt> 
+grunt> describe f;
+2017-04-21 00:02:37,026 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 1 time(s).
+f: {job_title: (job_title: chararray,full_time_position: chararray),avg: double}
+grunt> 
+
+ grunt> g = order f by $0 desc;
+2017-04-21 00:03:39,599 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 1 time(s).
+grunt> describe g;
+2017-04-21 00:03:45,178 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 1 time(s).
+g: {job_title: (job_title: chararray,full_time_position: chararray),avg: double}
+grunt> 
+
+grunt> h = limit g 10;
+2017-04-21 00:04:14,952 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 1 time(s).
+grunt> describe h;
+2017-04-21 00:04:21,459 [main] WARN  org.apache.pig.PigServer - Encountered Warning IMPLICIT_CAST_TO_DOUBLE 1 time(s).
+h: {job_title: (job_title: chararray,full_time_position: chararray),avg: double}
+
+grunt> dump h;
+
+2011
+(( SYSTEMS ANALYST,Y),42078.5)
+(( COMPUTER SYSTEMS ENGINEER,Y),46218.0)
+((|NFORMATION MANAGEMENT SPECIALIST,Y),38875.0)
+(([PHYSICAL THERAPIST,Y),69035.0)
+(([HIOX] COMMERCIAL SPECIALIST (SALES ENGINEER),Y),63357.0)
+((ZOOLOGIST,Y),40914.0)
+((ZONE MANAGER, OPERATIONS & ANALYSIS,Y),89378.0)
+((ZONE BUSINESS DEVELOPMENT MANAGER,Y),80912.0)
+((YOUTUBE STRATEGY & OPERATIONS ANALYST,Y),72238.0)
+((YOUTH SERVICE DEPARTMENT SUPERVISOR,Y),30514.0) 
+
+2012
+(( LEAD TEST ANALYST,Y),69389.0)
+((ZOOLOGISTS AND WILDLIFE BIOLOGISTS I,Y),31803.0)
+((ZOOLOGIST - REPRODUCTIVE PHYSIOLOGY,Y),56222.0)
+((ZOOKEEPER,Y),20800.0)
+((ZOO BIRD KEEPER,Y),30784.0)
+((ZONING MANAGER,Y),84635.0)
+((ZONE MERCHANDISER,Y),64064.0)
+((ZLC SPECIALIST, PROCESS IMPROVEMENT,Y),67080.0)
+((YOUTH WORKER,Y),24044.0)
+((YOUTH THERAPIST,Y),28558.0)
+etc find till 2016
+
+2013
+a = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+b = filter a by year=='2013';
+c = foreach b generate $4, $5, $6, $7;
+d = group c by ($0, $1);
+e = foreach d generate group as job_title, COUNT(c),SUM(c.prevailining_wage);
+ f = foreach e generate $0, ($2/$1)as avg;
+g = order f by $0 desc;
+h = limit g 10;
+dump h;
+
+(( TEST ANALYST - US,Y),53872.0)
+(( TECHNOLOGY ARCHITECT - US,Y),96033.0)
+(( LEAD CONSULTANT - US,Y),99652.0)
+(( CONSULTANT - US,Y),56992.0)
+(([FINANCIAL] ANALYST, STRUCTURED CREDIT,Y),73070.0)
+((ZYQAD SPECIALIST,Y),88493.5)
+((ZOO EDUCATION COORDINATOR,Y),36899.0)
+((ZONE ACCOUNT MANAGER, CAPITOL DEAL,Y),30017.0)
+((ZMS SOFTWARE ENGINEER,Y),105206.0)
+((ZIMBABWE PARTNERSHIP COORDINATOR,N),25729.0)
+
+2014
+a = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+b = filter a by year=='2014';
+c = foreach b generate $4, $5, $6, $7;
+d = group c by ($0, $1);
+e = foreach d generate group as job_title, COUNT(c),SUM(c.prevailining_wage);
+ f = foreach e generate $0, ($2/$1)as avg;
+g = order f by $0 desc;
+h = limit g 10;
+dump h;
+
+(( TEAM LEAD - US,Y),46779.0)
+(( SOFTWARE TEST ENGINEER,Y),65936.0)
+(( SENIOR PROJECT LEADER,Y),60778.0)
+(( QUALITY ASSURANCE ANALYST,Y),77938.0)
+(( MOBILE SQA ENGINEER   ,Y),41288.0)
+(( BUSINESS INTELLIGENCE ANALYST,Y),77938.0)
+((`QUALITY ASSURANCE ANALYST,Y),55682.0)
+((]ENGINEERING LEAD,Y),51542.0)
+((ZOOLOGIST,N),49795.0)
+((ZOOKEEPER,Y),27745.0)
+
+2015
+a = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+b = filter a by year=='2015';
+c = foreach b generate $4, $5, $6, $7;
+d = group c by ($0, $1);
+e = foreach d generate group as job_title, COUNT(c),SUM(c.prevailining_wage);
+ f = foreach e generate $0, ($2/$1)as avg;
+g = order f by $0 desc;
+h = limit g 10;
+dump h;
+
+(( SYSTEMS ANALYST,Y),61776.0)
+(( SOFTWARE TEST ENGINEER,Y),78707.0)
+(( SAS ANALYST,Y),55598.0)
+(( ORACLE APPS DBA,Y),60674.0)
+((  MIDDLEWARE ADMINISTRATION.,Y),57429.0)
+((ZOS SYSTEMS PROGRAMMER,Y),87818.0)
+((ZONE ENGINEER,Y),82118.0)
+((ZONAL ISOLATION SEGMENT ENGINEERING TECHNICAL AUTHORITY,Y),112486.0)
+((ZMS WEB CLIENT ENGINEER,Y),108534.0)
+((ZMS ENGINEER,Y),89502.0)
+
+2016
+a = load '/user/hive/warehouse/niit.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+b = filter a by year=='2016';
+c = foreach b generate $4, $5, $6, $7;
+d = group c by ($0, $1);
+e = foreach d generate group as job_title, COUNT(c),SUM(c.prevailining_wage);
+ f = foreach e generate $0, ($2/$1)as avg;
+g = order f by $0 desc;
+h = limit g 10;
+dump h;
+
+
+(( SR. BUSINESS INTELLIGENCE DEVELOPER,N),69909.0)
+(( SOFTWARE PROGRAMMER,N),65042.0)
+(( SOFTWARE ENGINEER,N),65042.0)
+(( SHAREPOINT/SQL DEVELOPER,Y),76107.0)
+(( QA ANALYST,N),56555.0)
+(( PROJECT MANAGERS,N),60986.0)
+(( BUSINESS INTELLIGENCE ANALYST,Y),77230.0)
+(( BUSINESS ANALYST,N),60133.0)
+((  MIDDLEWARE ADMINISTRATION.,N),57429.0)
+(([FINANCIAL] ANALYST, STRUCTURED CREDIT,Y),80163.0)
+
+
+9.
+h1b = load '/user/hive/warehouse/niit1.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+data = foreach h1b generate $2,$1;
+validdata = filter data by case_status=='CERTIFIED';
+withdata = filter data by case_status=='CERTIFIED-WITHDRAWN';
+
+datagroup = group data by employer_name;
+
+validgroup = group validdata by employer_name;
+withgroup = group withdata by employer_name;
+
+totalapp = foreach datagroup generate group as employer,COUNT(data) as no;
+validapp = foreach validgroup generate group as employer,COUNT(validdata) as no;
+withapp = foreach withgroup generate group as employer,COUNT(withdata) as no;
+
+joindata = join totalapp by $0,validapp by $0,withapp by $0;
+
+mydata = foreach joindata generate $0,$1,($3+$5);
+
+final = foreach mydata generate $0,$1,((double)$2*100/(double)$1) as success;
+
+result = filter final by $1>=10000 and $2>70.0;
+
+final_result = order result by $2 desc;
+
+myresult =limit final_result 10;
+
+dump myresult;
+
+(INFOSYS LIMITED,130592,99.5405537858368)
+(ACCENTURE LLP,33447,99.393069632553)
+(TATA CONSULTANCY SERVICES LIMITED,64726,99.33720606865866)
+(HCL AMERICA, INC.,22678,99.26801305229738)
+(DELOITTE CONSULTING LLP,36742,98.32888792118013)
+(WIPRO LIMITED,48117,98.28958580127606)
+(MICROSOFT CORPORATION,25576,98.09196121363779)
+(ERNST & YOUNG U.S. LLP,18232,98.0528740675735)
+(CAPGEMINI AMERICA INC,16725,97.95515695067265)
+(GOOGLE INC.,16473,96.59442724458205)
+
+10.
+
+h1b = load '/user/hive/warehouse/niit1.db/h1b_final' using PigStorage() as(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+data = foreach h1b generate job_title,case_status;
+validdata = filter data by case_status=='CERTIFIED';
+withdata = filter data by case_status=='CERTIFIED-WITHDRAWN';
+
+datagroup = group data by job_title;
+validgroup = group validdata by job_title;
+withgroup = group withdata by job_title;
+
+totalapp = foreach datagroup generate group as job_title,COUNT(data) as no;
+
+validapp = foreach validgroup generate group as job_title,COUNT(validdata) as no;
+
+withapp = foreach withgroup generate group as job_title,COUNT(withdata) as no;
+
+joindata = join totalapp by $0,validapp by $0,withapp by $0;
+
+mydata = foreach joindata generate $0,$1,($3+$5);
+
+final = foreach mydata generate $0,$1,((double)$2*100/(double)$1) as success;
+
+result = filter final by $1>=10000 and $2>70.0;
+
+final_result = order result by $2 desc;
+
+myresult =limit final_result 10;
+
+dump myresult;
+
+
+(AGRIGENETICS D/B/A MYCOGEN CORPORATION, A SUBSIDIARY OF THE DOW CHEMIC,7,100.0)
+(AUSCO PETROLEUM, INC. (D/B/A AUSTIN EXPLORATION, LTD. OR AUS-TEX EXPLO,12,100.0)
+(DENTSPLY TULSA DENTAL SPECIALTIES (DIVISION OF DENTSPLY INTERNATIONAL),2,100.0)
+(EUROFINS LANCASTER LABORATORIES, PROFESSIONAL SCIENTIFIC SERVICES, LLC,7,100.0)
+(NEW YORK CITY CHARTER HS FOR ARCHIT., ENG'G, & CONSTRUCTION INDUSTRIES,2,100.0)
+(ROHM AND HAAS CHEMICALS, LLC, A SUBSIDIARY OF THE DOW CHEMICAL COMPANY,15,100.0)
+(ROHM AND HAAS ELECTRONIC MATERIALS LLC, A SUBSIDIARY OF THE DOW CHEMIC,17,100.0)
+(TEJANO CENTER FOR COMMUNITY CONCERNS - RAUL YZAGUIRRE SCHOOL FOR SUCCE,3,100.0)
+(THE GRADUATE SCHOOL AND UNIVERSITY CENTER OF THE CITY UNIVERSITY OF NY,3,100.0)
+(VEOLIA NORTH AMERICA, INC. F/K/A VEOLIA ENVIRONNEMENT NORTH AMERICA OP,5,100.0)
+
+
+
+
+******
+
+data  = load 'fakedata.txt' as (name:chararray,sqr:chararray,ct:int);
+A = foreach data generate name, ct;
+A = FILTER A by ct is not null;
+B = group A all;
+C = foreach B generate SUM(A.ct) as tot;
+D = foreach A generate name, ct/(double)C.tot;
+dump D;
+
+*
+data = load 'StackData' as (name:chararray, marks:int);
+grp = GROUP data all;
+allcount = foreach grp generate SUM(data.marks) as total;
+perc = foreach data generate name, marks/(double)allcount.total;
+dump perc
+
+*
+A = LOAD 'data.txt' using PigStorage('\n');
+--DUMP A;
+B = GROUP A by $0;
+C = FOREACH B GENERATE group, COUNT(A.$0);
+--DUMP C;
+D = GROUP A ALL;
+E = FOREACH D GENERATE group,COUNT(A.$0);
+DUMP E;
+DESCRIBE C;
+DESCRIBE E;
+F = CROSS C,E;
+G = FOREACH F GENERATE $0,$1,$3,($1*100/$3);
+DESCRIBE G;
+DUMP G;
+
+
+
+30042017
+********
+
+6.Find the percentage and the count of each case status on total applications for each year. Create a graph depicting the pattern of All the cases over the period of time.
+
+
+h1b = load '/user/hive/warehouse/h1b_final' using PigStorage() as
+(sno:int, case_status:chararray, employer_name:chararray, soc_name:chararray, job_title:chararray,full_time_position:chararray,prevailining_wage:double, year:chararray, worksite:chararray, longitude:int, latitude:int);
+
+
+grunt> describe h1b;
+h1b: {sno: int,case_status: chararray,employer_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: int,latitude: int}
+grunt> 
+
+groupbyyear = group h1b by year;
+
+countbyyear = foreach groupbyyear generate group as year, COUNT(h1b) as no_of_petitions;
+
+grunt> describe countbyyear;
+countbyyear: {year: chararray,no_of_app: long}
+grunt> 
+
+certified = filter h1b by  case_status MATCHES 'CERTIFIED';
+certified_with = filter h1b by  case_status MATCHES 'CERTIFIED-WITHDROWN';
+withdrown = filter h1b by  case_status MATCHES 'WITHDROWN';
+denied = filter h1b by  case_status MATCHES 'DENIED';
+
+grunt> yearwise_certified = group certified by year;
+
+yearwise_certified_with = group certified_with  by year;
+yearwise_withdrown = group withdrown by year;
+yearwise_denied = group denied by year;
+
+
+
+
+
+totalcase_certified = foreach yearwise_certified generate group as year, COUNT(certified) as petition;
+
+totalcase_certified_with = foreach yearwise_certified_with  generate group as year, COUNT(certified_with ) as petition;
+
+totalcase_withdrown = foreach yearwise_withdrown generate group as year, COUNT(withdrown) as petition;
+
+totalcase_denied = foreach yearwise_denied generate group as year, COUNT(denied) as petition;
+
+
+
+--GENERATE group as CaseStatus, totalcase_certified as Certified, totalcase_certified_with as CertifiedWithdrown, totalcase_withdrown as Withdrown, totalcase_denied as Denied;
+
+""
+
+
+- -totalcase_status = foreach yearwisecase_status generate group as year, COUNT(filtercase) as petition;
+
+
+
+joindata = join totalcase_certified by $0, totalcase_certified_with by $0, totalcase_withdrown by $0 , totalcase_denied by $0;
+
+--grunt> joindata1 = join totalcase_certified by $0 FULL, totalcase_certified_with by $0;
+
+--joindata2= join joindata1 by $0 FULL,totalcase_withdrown by $0;
+
+--joindata= join joindata2 by $0 FULL,totalcase_denied by $0;
+
+--joindata = join totalcase_certified by $0 FULL, totalcase_certified_with by $0 FULL, totalcase_withdrown by $0 FULL, totalcase_denied by $0;
+
+grunt> describe joindata;
+joindata: {totalcase_certified::year: chararray,totalcase_certified::petition: long,totalcase_certified_with::year: chararray,totalcase_certified_with::petition: long,totalcase_withdrown::year: chararray,totalcase_withdrown::petition: long,totalcase_denied::year: chararray,totalcase_denied::petition: long}
+grunt> 
+
+--grunt> joindata = join countbyyear by $0 FULL, totalcase_status by $0;
+
+--grunt> newdata = foreach joindata generate $0,$1,$3;
+--grunt> describe newdata;
+newdata: {countbyyear::year: chararray,countbyyear::no_of_petitions: long,yearwisecase_status::filtercase: {(sno: int,case_status: chararray,employer_name: chararray,soc_name: chararray,job_title: chararray,full_time_position: chararray,prevailining_wage: double,year: chararray,worksite: chararray,longitude: double,latitude: double)}}
+grunt> 
+
+ newdata = foreach joindata generate $0,$1,$3;
+grunt> describe newdata;
+newdata: {totalcase_certified::year: chararray,totalcase_certified::petition: long,totalcase_certified_with::petition: long}
+grunt> 
+
+
+percentage = foreach newdata generate $0,$2, ROUND_TO((($2*100)/$1),2) as percentage;
+describe percentage;
+percentage: {countbyyear::year: chararray,totalcase_status::petition: long,percentage: float}
+
+
+
+
+result = order percentage by $0 desc;
+describe result;
+result: {countbyyear::year: chararray,totalcase_status::petition: long,percentage: float}
+
+
+ dump result  ;
+
+************
+6.
+
+hive> select year,case_status,COUNT(*) from h1b_app2 group by year, case_status;
+OR
+select year,case_status,COUNT(case_status) from h1b_app2 group by year, case_status;
+
+
+2011	CERTIFIED-WITHDRAWN	11596
+2011	WITHDRAWN	10105
+2012	CERTIFIED	352668
+2012	DENIED	21096
+2013	CERTIFIED-WITHDRAWN	35432
+2013	PENDING QUALITY AND COMPLIANCE REVIEW - UNASSIGNED	15
+2013	WITHDRAWN	11590
+2014	CERTIFIED	455144
+2014	DENIED	11896
+2014	INVALIDATED	1
+2015	CERTIFIED-WITHDRAWN	41071
+2015	WITHDRAWN	19455
+2016	CERTIFIED	569646
+2016	DENIED	9175
+2011	CERTIFIED	307936
+2011	DENIED	29130
+2012	CERTIFIED-WITHDRAWN	31118
+2012	WITHDRAWN	10725
+2013	CERTIFIED	382951
+2013	DENIED	12126
+2014	CERTIFIED-WITHDRAWN	36350
+2014	REJECTED	2
+2014	WITHDRAWN	16034
+2015	CERTIFIED	547278
+2015	DENIED	10923
+2016	CERTIFIED-WITHDRAWN	47092
+2016	WITHDRAWN	21890
+Time taken: 69.932 seconds, Fetched: 27 row(s)
+
+
+
+
